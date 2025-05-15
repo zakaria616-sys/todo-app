@@ -1,0 +1,22 @@
+---
+- hosts: webserver
+  become: yes
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+    - name: Deploy To-Do App
+      docker_container:
+        name: todo-app
+        image: todo-app:latest
+        state: started
+        pull: yes
+        ports:
+          - "5000:5000"
