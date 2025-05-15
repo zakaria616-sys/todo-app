@@ -35,8 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
+	
+      -	name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: python
@@ -67,16 +67,13 @@ jobs:
 
       - name: Push Docker image
         run: docker push todo-app:latest
-
   deploy:
     needs: [build, security, build-and-push]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Ansible
         run: pip install ansible
-
       - name: Deploy with Ansible
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
