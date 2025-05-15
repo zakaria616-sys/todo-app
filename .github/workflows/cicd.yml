@@ -61,7 +61,7 @@ jobs:
 
       - name: Push Docker image
         run: docker push todo-app:latest
-deploy:
+  deploy:
     needs: [build, security, build-and-push]
     runs-on: ubuntu-latest
     steps:
