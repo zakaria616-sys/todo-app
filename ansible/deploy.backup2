@@ -7,11 +7,11 @@
     docker_repo_url: "https://download.docker.com/linux/ubuntu"
     docker_repo_release: "{{ ansible_distribution_release }}"
     docker_repo_arch: "amd64"
-    docker_package_version: ""  # Peut être défini pour forcer une version
+    docker_package_version: "5:24.0.7-1~ubuntu.20.04~focal"  # Optionnel, peut être laissé vide
     docker_compose_version: "v2.24.6"
-    image_name: "ghcr.io/<ton-utilisateur>/todo-app:latest"  # <-- MODIFIE ICI
 
   tasks:
+
     - name: Install required packages
       apt:
         name:
@@ -61,16 +61,17 @@
         state: started
         enabled: yes
 
-    - name: Pull latest todo-app image
+    - name: Pull todo-app image
       community.docker.docker_image:
-        name: "{{ image_name }}"
+        name: ghcr.io/todo-app-example/todo-app
         source: pull
 
     - name: Run todo-app container
       community.docker.docker_container:
         name: todo-app
-        image: "{{ image_name }}"
+        image: ghcr.io/todo-app-example/todo-app
         state: started
         restart_policy: always
         published_ports:
-          - "5000:5000"
+          - "80:3000"
+

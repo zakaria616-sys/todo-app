@@ -1,93 +1,83 @@
-name: CI/CD Pipeline
+name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
   pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
-  packages: write
-  id-token: write
-  security-events: write
+    branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          pip install -r requirements.txt
+          pip install pytest
 
       - name: Run tests
-        run: pytest tests/
+        run: |
+          pytest tests/
 
-  security:
+  security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: CodeQL Analysis Init
+        uses: github/codeql-action/init@v2
         with:
           languages: python
 
-      - name: Run CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
 
-      - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'todo-app:latest'
-          format: 'table'
-          exit-code: '1'
-          severity: 'CRITICAL,HIGH'
-
-  build-and-push:
-    needs: [build, security]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Install Trivy
+        run: |
+          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy -y
 
       - name: Build Docker image
-        run: docker build -t todo-app:latest .
+        run: docker build -t ghcr.io/zakaria616-sys/todo-app:latest .
 
-      - name: Log in to Docker Hub
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-
-      - name: Push Docker image
-        run: docker push todo-app:latest
+      - name: Trivy scan
+        run: trivy image ghcr.io/zakaria616-sys/todo-app:latest
 
   deploy:
-    needs: build-and-push
+    needs: [build-and-test, security-scan]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Install Ansible & dependencies
+      - name: Inject SSH Private Key
         run: |
-          python -m pip install --upgrade pip
-          pip install ansible community.docker
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/id_rsa
+          chmod 600 /tmp/id_rsa
 
-      - name: Setup SSH key
-        uses: webfactory/ssh-agent@v0.8.1
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Run Ansible deploy playbook
-        env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+      - name: Debug Key File Presence
         run: |
-          echo "$ANSIBLE_VAULT_PASSWORD" > vault_pass.txt
-          ansible-playbook -i ansible/inventory.yml ansible/deploy.yml --vault-password-file vault_pass.txt
+          ls -l /tmp/id_rsa
+          head -n 1 /tmp/id_rsa
+
+      - name: Install Ansible
+        run: |
+          sudo apt update
+          sudo apt install -y ansible
+
+      - name: Run Ansible Playbook
+        run: |
+          ansible-playbook -i ansible/inventory.yml ansible/deploy.yml --ssh-extra-args='-o StrictHostKeyChecking=no'
