@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -30,22 +30,21 @@ jobs:
           pip install pytest
 
       - name: Run tests
-        run: |
-          pytest tests/
+        run: pytest tests/
 
   security-scan:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: CodeQL Analysis Init
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: python
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
 
       - name: Install Trivy
         run: |
@@ -63,25 +62,10 @@ jobs:
 
   deploy:
     needs: [build-and-test, security-scan]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Inject SSH Private Key
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/id_rsa
-          chmod 600 /tmp/id_rsa
-
-      - name: Debug Key File Presence
-        run: |
-          ls -l /tmp/id_rsa
-          head -n 1 /tmp/id_rsa
-
-      - name: Install Ansible
-        run: |
-          sudo apt update
-          sudo apt install -y ansible
 
       - name: Run Ansible Playbook
         run: |
