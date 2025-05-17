@@ -9,7 +9,7 @@
     docker_repo_arch: "amd64"
     docker_package_version: ""  # Peut être défini pour forcer une version
     docker_compose_version: "v2.24.6"
-    image_name: "ghcr.io/<ton-utilisateur>/todo-app:latest"  # <-- MODIFIE ICI
+    image_name: "ghcr.io/zakaria616-sys/todo-app:latest"  # <-- MODIFIE ICI
 
   tasks:
     - name: Install required packages
